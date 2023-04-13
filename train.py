@@ -792,13 +792,15 @@ def validate(model, loader, loss_fn, args, amp_autocast=suppress, log_suffix='')
             end = time.time()
             if args.local_rank == 0 and (last_batch or batch_idx % args.log_interval == 0):
                 log_name = 'Test' + log_suffix
+                f1 = f1_score(labels, preds, average='macro')
                 _logger.info(
                     '{0}: [{1:>4d}/{2}]  '
                     'Time: {batch_time.val:.3f} ({batch_time.avg:.3f})  '
                     'Loss: {loss.val:>7.4f} ({loss.avg:>6.4f})  '
-                    'Acc@1: {top1.val:>7.4f} ({top1.avg:>7.4f})  '.format(
+                    'Acc@1: {top1.val:>7.4f} ({top1.avg:>7.4f})  '
+                    'F1 Score: {f1}'.format(
                         log_name, batch_idx, last_idx, batch_time=batch_time_m,
-                        loss=losses_m, top1=top1_m))
+                        loss=losses_m, top1=top1_m, f1=f1))
     f1 = f1_score(labels, preds, average='macro')
     _logger.info(f'F1 score on validation is {f1}')
     metrics = OrderedDict([('loss', losses_m.avg), ('top1', top1_m.avg), ('f1_score', f1)])

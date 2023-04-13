@@ -1,12 +1,10 @@
 DATA_PATH=/home/$USER/ba_project/datasets/test
-CODE_PATH=/home/$USER/metaformer # modify code path here
+CODE_PATH=/home/$USER/metaformer
 INIT_CKPT=/home/$USER/metaformer/convformer_s18_384.pth
 
-BATCH_SIZE=1
+BATCH_SIZE=64
 NUM_GPU=1
-GRAD_ACCUM_STEPS=1 # Adjust according to your GPU numbers and memory size.
-#BATCH_SIZE=ALL_BATCH_SIZE/NUM_GPU/GRAD_ACCUM_STEPS
-
+GRAD_ACCUM_STEPS=1
 
 cd $CODE_PATH && sh distributed_train.sh $NUM_GPU $DATA_PATH \
 --model convformer_s18_384 --img-size 384 --epochs 2 --opt adamw --lr 5e-5 --sched None \
