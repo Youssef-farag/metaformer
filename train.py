@@ -284,7 +284,7 @@ group.add_argument('-j', '--workers', type=int, default=8, metavar='N',
                     help='how many training processes to use (default: 8)')
 group.add_argument('--save-images', action='store_true', default=False,
                     help='save images of input bathes every log interval for debugging')
-group.add_argument('--amp', action='store_true', default=False,
+group.add_argument('--amp', action='store_true', default=True,
                     help='use NVIDIA Apex AMP or Native AMP for mixed precision training')
 group.add_argument('--apex-amp', action='store_true', default=False,
                     help='Use NVIDIA Apex AMP mixed precision')
@@ -300,7 +300,7 @@ group.add_argument('--output', default='', type=str, metavar='PATH',
                     help='path to output folder (default: none, current dir)')
 group.add_argument('--experiment', default='', type=str, metavar='NAME',
                     help='name of train experiment, name of sub-folder for output')
-group.add_argument('--eval-metric', default='f1_scre', type=str, metavar='EVAL_METRIC',
+group.add_argument('--eval-metric', default='f1_score', type=str, metavar='EVAL_METRIC',
                     help='Best metric (default: "f1_score"')
 group.add_argument('--tta', type=int, default=0, metavar='N',
                     help='Test/inference time augmentation (oversampling) factor. 0=None (default: 0)')
@@ -776,7 +776,7 @@ def validate(model, loader, loss_fn, args, amp_autocast=suppress, log_suffix='')
                 target = target[0:target.size(0):reduce_factor]
 
             loss = loss_fn(output, target)
-            acc1 = utils.accuracy(output, target, topk=(1, ))
+            acc1 = utils.accuracy(output, target, topk=(1, ))[0]
 
             reduced_loss = loss.data
 
