@@ -2,10 +2,10 @@ DATA_PATH=/path/to/imagenet
 CODE_PATH=/path/to/code/metaformer # modify code path here
 INIT_CKPT=/path/to/trained/model
 
-ALL_BATCH_SIZE=1024
-NUM_GPU=8
-GRAD_ACCUM_STEPS=4 # Adjust according to your GPU numbers and memory size.
-let BATCH_SIZE=ALL_BATCH_SIZE/NUM_GPU/GRAD_ACCUM_STEPS
+BATCH_SIZE=2
+NUM_GPU=1
+GRAD_ACCUM_STEPS=1 # Adjust according to your GPU numbers and memory size.
+#BATCH_SIZE=ALL_BATCH_SIZE/NUM_GPU/GRAD_ACCUM_STEPS
 
 
 cd $CODE_PATH && sh distributed_train.sh $NUM_GPU $DATA_PATH \
