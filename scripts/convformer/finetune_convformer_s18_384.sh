@@ -1,6 +1,6 @@
-DATA_PATH=/path/to/imagenet
-CODE_PATH=/path/to/code/metaformer # modify code path here
-INIT_CKPT=/path/to/trained/model
+DATA_PATH=/home/yous/Desktop/cerrion/datasets/incremental_dataset_sections_conveyor_curve/
+CODE_PATH=/home/yous/Desktop/cerrion/metaformer # modify code path here
+INIT_CKPT=/home/yous/Desktop/cerrion/metaformer/convformer_s18_384.pth
 
 BATCH_SIZE=2
 NUM_GPU=1

@@ -12,6 +12,7 @@ import torch.nn as nn
 import torchvision.utils
 import yaml
 
+from sklearn.metrics import f1_score
 from timm import utils
 from timm.data import create_dataset, create_loader, resolve_data_config, Mixup, FastCollateMixup, AugMixDataset
 from timm.loss import JsdCrossEntropy, SoftTargetCrossEntropy, BinaryCrossEntropy, \
@@ -299,8 +300,8 @@ group.add_argument('--output', default='', type=str, metavar='PATH',
                     help='path to output folder (default: none, current dir)')
 group.add_argument('--experiment', default='', type=str, metavar='NAME',
                     help='name of train experiment, name of sub-folder for output')
-group.add_argument('--eval-metric', default='top1', type=str, metavar='EVAL_METRIC',
-                    help='Best metric (default: "top1"')
+group.add_argument('--eval-metric', default='f1_scre', type=str, metavar='EVAL_METRIC',
+                    help='Best metric (default: "f1_score"')
 group.add_argument('--tta', type=int, default=0, metavar='N',
                     help='Test/inference time augmentation (oversampling) factor. 0=None (default: 0)')
 group.add_argument("--local_rank", default=0, type=int)
@@ -748,7 +749,8 @@ def validate(model, loader, loss_fn, args, amp_autocast=suppress, log_suffix='')
     batch_time_m = utils.AverageMeter()
     losses_m = utils.AverageMeter()
     top1_m = utils.AverageMeter()
-    top5_m = utils.AverageMeter()
+
+    preds, labels = [], []
 
     model.eval()
 
@@ -775,7 +777,7 @@ def validate(model, loader, loss_fn, args, amp_autocast=suppress, log_suffix='')
                 target = target[0:target.size(0):reduce_factor]
 
             loss = loss_fn(output, target)
-            acc1, acc5 = utils.accuracy(output, target, topk=(1, 5))
+            acc1 = utils.accuracy(output, target, topk=(1, ))
 
             reduced_loss = loss.data
 
@@ -783,7 +785,9 @@ def validate(model, loader, loss_fn, args, amp_autocast=suppress, log_suffix='')
 
             losses_m.update(reduced_loss.item(), input.size(0))
             top1_m.update(acc1.item(), output.size(0))
-            top5_m.update(acc5.item(), output.size(0))
+
+            preds.extend(list(torch.argmax(output, dim=1).cpu().numpy()))
+            labels.extend(list(target.cpu().numpy()))
 
             batch_time_m.update(time.time() - end)
             end = time.time()
@@ -793,12 +797,12 @@ def validate(model, loader, loss_fn, args, amp_autocast=suppress, log_suffix='')
                     '{0}: [{1:>4d}/{2}]  '
                     'Time: {batch_time.val:.3f} ({batch_time.avg:.3f})  '
                     'Loss: {loss.val:>7.4f} ({loss.avg:>6.4f})  '
-                    'Acc@1: {top1.val:>7.4f} ({top1.avg:>7.4f})  '
-                    'Acc@5: {top5.val:>7.4f} ({top5.avg:>7.4f})'.format(
+                    'Acc@1: {top1.val:>7.4f} ({top1.avg:>7.4f})  '.format(
                         log_name, batch_idx, last_idx, batch_time=batch_time_m,
-                        loss=losses_m, top1=top1_m, top5=top5_m))
-
-    metrics = OrderedDict([('loss', losses_m.avg), ('top1', top1_m.avg), ('top5', top5_m.avg)])
+                        loss=losses_m, top1=top1_m))
+    f1 = f1_score(labels, preds, average='macro')
+    _logger.info(f'F1 score on validation is {f1}')
+    metrics = OrderedDict([('loss', losses_m.avg), ('top1', top1_m.avg), ('f1_score', f1)])
 
     return metrics
 
