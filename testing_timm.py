@@ -171,6 +171,7 @@ def _parse_args():
 
 def main():
     args, args_text = _parse_args()
+    use_prefetcher = True
     args.data_dir = '../ba_project/datasets/retest'
     modargs = {'model_name': 'convformer_s18_384', 'pretrained': False, 'num_classes': None,
                'drop_rate': 0.0, 'drop_connect_rate': None, 'drop_path_rate': 0.3,
@@ -191,7 +192,7 @@ def main():
         input_size=data_config['input_size'],
         batch_size=1,
         is_training=True,
-        use_prefetcher=True,
+        use_prefetcher=use_prefetcher,
         no_aug=True,
         re_prob=args.reprob,
         re_mode='pixel',
@@ -217,32 +218,26 @@ def main():
     # loader_train.dataset.transform = transf_torch
     # trans_tiff = loader_train.dataset.transform
     trans_tiff = transforms_factory.transforms_noaug_train(img_size=(384,384),
-                                                           use_prefetcher=True,
+                                                           use_prefetcher=use_prefetcher,
                                                            mean=data_config['mean'],
                                                            std=data_config['std'])
     print(trans_tiff)
     print(loader_train.dataset.transform)
-    print('Label', im_label)
+    exit()
     im_tiff = trans_tiff(im)
     mean = expand_to_chs(data_config['mean'], 3)
     std = expand_to_chs(data_config['std'], 3)
     normalization_shape = (1, 3, 1, 1)
     mean = torch.tensor([x * 255 for x in mean]).view(normalization_shape)
     std = torch.tensor([x * 255 for x in std]).view(normalization_shape)
-    im_tiff = transforms.ToTensor()(im_tiff)
-    print(im_tiff.shape)
-    im_tiff = fast_collate(im_tiff)
-    print(im_tiff.shape)
-    im_tiff = im_tiff.permute(1,2,0).unsqueeze(0).float().sub_(mean).div_(std)
-    print(im_tiff.shape)
+    im_tiff, im_label = fast_collate([(im_tiff, im_label)])
+    im_tiff = im_tiff.float().sub_(mean).div_(std)
 
-    samples = defaultdict(list)
+    samples = []
     for x in loader_train:
-        samples[x[1].item()].append(x[0])
+        samples.append(x[0])
 
-    newsample = samples[im_label][0]
-    print(newsample.shape)
-    print(torch.equal(im_tiff.unsqueeze(0).cpu(), newsample.cpu()))
+    print(torch.equal(im_tiff.cpu(), samples[0].cpu()))
 
 if __name__ == '__main__':
     main()
