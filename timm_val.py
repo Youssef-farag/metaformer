@@ -66,8 +66,8 @@ group = parser.add_argument_group('Dataset parameters')
 #                     default='/home/yous/Desktop/cerrion/datasets/retest')
 group.add_argument('--dataset', '-d', metavar='NAME', default='ImageFolder',
                     help='dataset type (default: ImageFolder/ImageTar if empty)')
-group.add_argument('--train-split', metavar='NAME', default='train',
-                    help='dataset train split (default: train)')
+parser.add_argument('--split', metavar='NAME', default='validation',
+                    help='dataset split (default: validation)')
 group.add_argument('--class-map', default='', type=str, metavar='FILENAME',
                     help='path to class to idx mapping file (default: "")')
 
@@ -90,7 +90,7 @@ group.add_argument('-b', '--batch-size', type=int, default=1, metavar='N',
 
 # Augmentation & regularization parameters
 group = parser.add_argument_group('Augmentation and regularization parameters')
-group.add_argument('--no-aug', action='store_true', default=False,
+group.add_argument('--no-aug', action='store_true', default=True,
                     help='Disable all training augmentation, override other train aug args')
 group.add_argument('--scale', type=float, nargs='+', default=[0.08, 1.0], metavar='PCT',
                     help='Random resize scale (default: 0.08 1.0)')
@@ -130,6 +130,11 @@ group.add_argument('--use-multi-epochs-loader', action='store_true', default=Fal
 group.add_argument('--worker-seeding', type=str, default='all',
                     help='worker seed mode (default: all)')
 
+parser.add_argument('--tf-preprocessing', action='store_true', default=False,
+                    help='Use Tensorflow preprocessing pipeline (require CPU TF installed')
+parser.add_argument('--dataset-download', action='store_true', default=False,
+                    help='Allow download of dataset for torch/ and tfds/ datasets that support it.')
+
 def _parse_args():
     # Do we have a config file to parse?
     args_config, remaining = config_parser.parse_known_args()
@@ -156,71 +161,38 @@ def main():
     a = create_model(**modargs)
     data_config = resolve_data_config(vars(args), model=a, verbose=True)
 
-    train_interpolation = args.train_interpolation
-    if args.no_aug or not train_interpolation:
-        train_interpolation = data_config['interpolation']
+    dataset = create_dataset(
+        root=args.data_dir, name=args.dataset, split=args.split,
+        download=args.dataset_download, load_bytes=args.tf_preprocessing, class_map=args.class_map)
 
-    dataset_train = create_dataset(
-        args.dataset, root=args.data_dir, split=args.train_split, is_training=True,
-        class_map=args.class_map, download=False, batch_size=args.batch_size, repeats=0)
-    impath, im_label = dataset_train.parser.samples[1]
+    impath, im_label = dataset.parser.samples[1]
     im = Image.open(impath).convert('RGB')
-    num_aug_splits = 0
     args.prefetcher = not args.no_prefetcher
     img_size = (384, 384)
-    loader_train = create_loader(
-        dataset_train,
+    crop_pct = data_config['crop_pct']
+    loader = create_loader(
+        dataset,
         input_size=data_config['input_size'],
         batch_size=args.batch_size,
-        is_training=True,
         use_prefetcher=args.prefetcher,
-        no_aug=args.no_aug,
-        re_prob=args.reprob,
-        re_mode=args.remode,
-        re_count=args.recount,
-        re_split=args.resplit,
-        scale=args.scale,
-        ratio=args.ratio,
-        hflip=args.hflip,
-        vflip=args.vflip,
-        color_jitter=args.color_jitter,
-        auto_augment=args.aa,
-        num_aug_splits=num_aug_splits,
-        interpolation=train_interpolation,
+        interpolation=data_config['interpolation'],
         mean=data_config['mean'],
         std=data_config['std'],
         num_workers=args.workers,
-        collate_fn=None,
+        crop_pct=crop_pct,
         pin_memory=args.pin_mem,
-        use_multi_epochs_loader=args.use_multi_epochs_loader,
-        worker_seeding=args.worker_seeding,
-    )
-    if args.no_aug:
-        trans_tiff = transforms_factory.transforms_noaug_train(img_size=img_size,
-                                                               use_prefetcher=args.prefetcher,
-                                                               mean=data_config['mean'],
-                                                               std=data_config['std'],
-                                                               interpolation=train_interpolation)
-    else:
-        trans_tiff = transforms_factory.transforms_imagenet_train(
-            img_size,
-            scale=args.scale,
-            ratio=args.ratio,
-            hflip=args.hflip,
-            vflip=args.vflip,
-            color_jitter=args.color_jitter,
-            auto_augment=args.aa,
-            interpolation=train_interpolation,
-            use_prefetcher=args.prefetcher,
-            mean=data_config['mean'],
-            std=data_config['std'],
-            re_prob=args.reprob,
-            re_mode=args.remode,
-            re_count=args.recount,
-            re_num_splits=0,
-            separate=False)
+        tf_preprocessing=args.tf_preprocessing)
+
+    trans_tiff = transforms_factory.transforms_imagenet_eval(
+        img_size,
+        interpolation=data_config['interpolation'],
+        use_prefetcher=args.prefetcher,
+        mean=data_config['mean'],
+        std=data_config['std'],
+        crop_pct=crop_pct)
+
     print(trans_tiff)
-    print(loader_train.dataset.transform)
+    print(loader.dataset.transform)
     im_tiff = trans_tiff(im)
     mean = expand_to_chs(data_config['mean'], 3)
     std = expand_to_chs(data_config['std'], 3)
@@ -231,7 +203,7 @@ def main():
     im_tiff = im_tiff.float().sub_(mean).div_(std)
 
     samples = []
-    for x in loader_train:
+    for x in loader:
         samples.append(x[0])
 
     print([torch.equal(im_tiff.cpu(), x.cpu()) for x in samples])
