@@ -151,21 +151,13 @@ def main():
         class_map=args.class_map, download=False, batch_size=1, repeats=0)
     impath, im_label = dataset_train.parser.samples[1]
     im = Image.open(impath).convert('RGB')
-    # transf_torch = transforms.Compose([
-    #     transforms.ToTensor(),
-    #     transforms.Resize((384,384)),
-    #     transforms.Normalize(mean=data_config['mean'],
-    #                          std=data_config['std'])])
-    # im_torch = transf_torch(im)
-    # print(im_torch.shape)
-    # print(im_torch)
 
     loader_train = create_loader(
         dataset_train,
         input_size=data_config['input_size'],
         batch_size=1,
         is_training=True,
-        use_prefetcher=False,
+        use_prefetcher=True,
         no_aug=True,
         re_prob=args.reprob,
         re_mode='pixel',
@@ -190,20 +182,22 @@ def main():
     )
     # loader_train.dataset.transform = transf_torch
     # trans_tiff = loader_train.dataset.transform
-    trans_tiff = transforms_factory.transforms_noaug_train(img_size=384,
-                                                           use_prefetcher=False,
+    trans_tiff = transforms_factory.transforms_noaug_train(img_size=(384,384),
+                                                           use_prefetcher=True,
                                                            mean=data_config['mean'],
                                                            std=data_config['std'])
+    print(trans_tiff)
+    print(loader_train.dataset.transform)
     print('Label', im_label)
-    # mean = expand_to_chs(data_config['mean'], 3)
-    # std = expand_to_chs(data_config['std'], 3)
-    # normalization_shape = (1, 3, 1, 1)
-    # mean = torch.tensor([x * 255 for x in mean]).view(normalization_shape)
-    # std = torch.tensor([x * 255 for x in std]).view(normalization_shape)
     im_tiff = trans_tiff(im)
-    # im_tiff = im_tiff.unsqueeze(0).float().sub_(mean).div_(std)
+    mean = expand_to_chs(data_config['mean'], 3)
+    std = expand_to_chs(data_config['std'], 3)
+    normalization_shape = (1, 3, 1, 1)
+    mean = torch.tensor([x * 255 for x in mean]).view(normalization_shape)
+    std = torch.tensor([x * 255 for x in std]).view(normalization_shape)
+    im_tiff = transforms.ToTensor()(im_tiff)
+    im_tiff = im_tiff.permute(1,2,0).unsqueeze(0).float().sub_(mean).div_(std)
     print(im_tiff.shape)
-    print(im_tiff)
 
     samples = defaultdict(list)
     for x in loader_train:
@@ -211,7 +205,7 @@ def main():
 
     newsample = samples[im_label][0]
     print(newsample.shape)
-    print(newsample)
+    print(torch.equal(im_tiff.unsqueeze(0).cpu(), newsample.cpu()))
 
 if __name__ == '__main__':
     main()
