@@ -10,6 +10,16 @@ import metaformer_baselines
 from timm.data import create_dataset, create_loader, resolve_data_config, transforms_factory
 from timm.data.loader import _worker_init, PrefetchLoader
 from functools import partial
+from itertools import repeat
+
+def expand_to_chs(x, n):
+    if not isinstance(x, (tuple, list)):
+        x = tuple(repeat(x, n))
+    elif len(x) == 1:
+        x = x * n
+    else:
+        assert len(x) == n, 'normalization stats must match image channels'
+    return x
 
 config_parser = parser = argparse.ArgumentParser(description='Training Config', add_help=False)
 parser.add_argument('-c', '--config', default='', type=str, metavar='FILE',
@@ -148,6 +158,14 @@ def main():
                              std=data_config['std'])])
     im_torch = transf_torch(im)
     print('Label', im_label)
+    print(im_torch.shape)
+    print(im_torch)
+    mean = expand_to_chs(data_config['mean'], 3)
+    std = expand_to_chs(data_config['std'], 3)
+    normalization_shape = (1, 3, 1, 1)
+    mean = torch.tensor([x * 255 for x in mean]).cuda().view(normalization_shape)
+    std = torch.tensor([x * 255 for x in std]).cuda().view(normalization_shape)
+    im_torch = im_torch.float().sub_(mean).div_(std)
     print(im_torch.shape)
     print(im_torch)
 
