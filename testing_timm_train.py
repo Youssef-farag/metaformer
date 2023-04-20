@@ -85,7 +85,7 @@ group.add_argument('--std', type=float, nargs='+', default=None, metavar='STD',
                     help='Override std deviation of dataset')
 group.add_argument('--interpolation', default='', type=str, metavar='NAME',
                     help='Image resize interpolation type (overrides model)')
-group.add_argument('-b', '--batch-size', type=int, default=128, metavar='N',
+group.add_argument('-b', '--batch-size', type=int, default=1, metavar='N',
                     help='Input batch size for training (default: 128)')
 
 # Augmentation & regularization parameters
@@ -151,10 +151,8 @@ def main():
     args, args_text = _parse_args()
     args.rank = 0
     utils.random_seed(args.seed, args.rank)
-    use_prefetcher = True
     args.data_dir = '/home/yous/Desktop/cerrion/datasets/retest'
-    modargs = {'model_name': 'convformer_s18_384', 'pretrained': True, 'num_classes': 3,
-               'checkpoint_path': './convformer_s18_384.pth'}
+    modargs = {'model_name': 'convformer_s18_384', 'checkpoint_path': './convformer_s18_384.pth'}
     a = create_model(**modargs)
     data_config = resolve_data_config(vars(args), model=a, verbose=True)
 
@@ -164,11 +162,12 @@ def main():
 
     dataset_train = create_dataset(
         args.dataset, root=args.data_dir, split=args.train_split, is_training=True,
-        class_map=args.class_map, download=False, batch_size=1, repeats=0)
+        class_map=args.class_map, download=False, batch_size=args.batch_size, repeats=0)
     impath, im_label = dataset_train.parser.samples[1]
     im = Image.open(impath).convert('RGB')
     num_aug_splits = 0
     args.prefetcher = not args.no_prefetcher
+    img_size = (384, 384)
     loader_train = create_loader(
         dataset_train,
         input_size=data_config['input_size'],
@@ -196,29 +195,29 @@ def main():
         use_multi_epochs_loader=args.use_multi_epochs_loader,
         worker_seeding=args.worker_seeding,
     )
-    # loader_train.dataset.transform = transf_torch
-    # trans_tiff = loader_train.dataset.transform
-    # trans_tiff = transforms_factory.transforms_noaug_train(img_size=(384,384),
-    #                                                        use_prefetcher=use_prefetcher,
-    #                                                        mean=data_config['mean'],
-    #                                                        std=data_config['std'])
-    trans_tiff = transforms_factory.transforms_imagenet_train(
-        (384,384),
-        scale=args.scale,
-        ratio=args.ratio,
-        hflip=args.hflip,
-        vflip=args.vflip,
-        color_jitter=args.color_jitter,
-        auto_augment=args.aa,
-        interpolation='random',
-        use_prefetcher=use_prefetcher,
-        mean=data_config['mean'],
-        std=data_config['std'],
-        re_prob=args.reprob,
-        re_mode='pixel',
-        re_count=1,
-        re_num_splits=0,
-        separate=False)
+    if args.no_aug:
+        trans_tiff = transforms_factory.transforms_noaug_train(img_size=img_size,
+                                                               use_prefetcher=args.prefetcher,
+                                                               mean=data_config['mean'],
+                                                               std=data_config['std'])
+    else:
+        trans_tiff = transforms_factory.transforms_imagenet_train(
+            img_size,
+            scale=args.scale,
+            ratio=args.ratio,
+            hflip=args.hflip,
+            vflip=args.vflip,
+            color_jitter=args.color_jitter,
+            auto_augment=args.aa,
+            interpolation=train_interpolation,
+            use_prefetcher=args.prefetcher,
+            mean=data_config['mean'],
+            std=data_config['std'],
+            re_prob=args.reprob,
+            re_mode=args.remode,
+            re_count=args.recount,
+            re_num_splits=0,
+            separate=False)
     print(trans_tiff)
     print(loader_train.dataset.transform)
     im_tiff = trans_tiff(im)
