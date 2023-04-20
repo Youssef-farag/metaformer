@@ -151,41 +151,12 @@ def main():
     print(im_torch.shape)
     print(im_torch)
 
-    transf_timm = transforms_factory.create_transform(
-        data_config['input_size'],
-        is_training=True,
-        use_prefetcher=True,
-        no_aug=True,
-        scale=args.scale,
-        ratio=args.ratio,
-        hflip=args.hflip,
-        vflip=args.vflip,
-        color_jitter=args.color_jitter,
-        auto_augment=args.aa,
-        interpolation='random',
-        mean=data_config['mean'],
-        std=data_config['std'],
-        crop_pct=None,
-        tf_preprocessing=False,
-        re_prob=args.reprob,
-        re_mode='pixel',
-        re_count=1,
-        re_num_splits=0,
-        separate=False,
-    )
-    im_timm = transf_timm(im)
-    transf_timm2 = transforms.Compose([
-        transforms.ToTensor()])
-    im_timm = transf_timm2(im_timm)
-    print(im_timm.shape)
-    print(im_timm)
-
     loader_train = create_loader(
         dataset_train,
         input_size=data_config['input_size'],
         batch_size=1,
         is_training=True,
-        use_prefetcher=True,
+        use_prefetcher=False,
         no_aug=True,
         re_prob=args.reprob,
         re_mode='pixel',
@@ -207,6 +178,7 @@ def main():
         use_multi_epochs_loader=False,
         worker_seeding='all',
     )
+    loader_train.dataset.transform = transf_torch
 
     samples = defaultdict(list)
     for x in loader_train:
