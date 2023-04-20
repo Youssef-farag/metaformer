@@ -12,6 +12,40 @@ from timm.data.loader import _worker_init, PrefetchLoader
 from functools import partial
 from itertools import repeat
 
+def fast_collate(batch):
+    """ A fast collation function optimized for uint8 images (np array or torch) and int64 targets (labels)"""
+    assert isinstance(batch[0], tuple)
+    batch_size = len(batch)
+    if isinstance(batch[0][0], tuple):
+        # This branch 'deinterleaves' and flattens tuples of input tensors into one tensor ordered by position
+        # such that all tuple of position n will end up in a torch.split(tensor, batch_size) in nth position
+        inner_tuple_size = len(batch[0][0])
+        flattened_batch_size = batch_size * inner_tuple_size
+        targets = torch.zeros(flattened_batch_size, dtype=torch.int64)
+        tensor = torch.zeros((flattened_batch_size, *batch[0][0][0].shape), dtype=torch.uint8)
+        for i in range(batch_size):
+            assert len(batch[i][0]) == inner_tuple_size  # all input tensor tuples must be same length
+            for j in range(inner_tuple_size):
+                targets[i + j * batch_size] = batch[i][1]
+                tensor[i + j * batch_size] += torch.from_numpy(batch[i][0][j])
+        return tensor, targets
+    elif isinstance(batch[0][0], np.ndarray):
+        targets = torch.tensor([b[1] for b in batch], dtype=torch.int64)
+        assert len(targets) == batch_size
+        tensor = torch.zeros((batch_size, *batch[0][0].shape), dtype=torch.uint8)
+        for i in range(batch_size):
+            tensor[i] += torch.from_numpy(batch[i][0])
+        return tensor, targets
+    elif isinstance(batch[0][0], torch.Tensor):
+        targets = torch.tensor([b[1] for b in batch], dtype=torch.int64)
+        assert len(targets) == batch_size
+        tensor = torch.zeros((batch_size, *batch[0][0].shape), dtype=torch.uint8)
+        for i in range(batch_size):
+            tensor[i].copy_(batch[i][0])
+        return tensor, targets
+    else:
+        assert False
+
 def expand_to_chs(x, n):
     if not isinstance(x, (tuple, list)):
         x = tuple(repeat(x, n))
@@ -174,7 +208,7 @@ def main():
         mean=data_config['mean'],
         std=data_config['std'],
         num_workers=args.workers,
-        collate_fn=None,
+        collate_fn=fast_collate,
         pin_memory=False,
         use_multi_epochs_loader=False,
         worker_seeding='all',
@@ -196,6 +230,9 @@ def main():
     mean = torch.tensor([x * 255 for x in mean]).view(normalization_shape)
     std = torch.tensor([x * 255 for x in std]).view(normalization_shape)
     im_tiff = transforms.ToTensor()(im_tiff)
+    print(im_tiff.shape)
+    im_tiff = fast_collate(im_tiff)
+    print(im_tiff.shape)
     im_tiff = im_tiff.permute(1,2,0).unsqueeze(0).float().sub_(mean).div_(std)
     print(im_tiff.shape)
 
