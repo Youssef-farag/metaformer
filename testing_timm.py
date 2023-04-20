@@ -174,6 +174,9 @@ def main():
         separate=False,
     )
     im_timm = transf_timm(im)
+    transf_timm2 = transforms.Compose([
+        transforms.ToTensor()])
+    im_timm = transf_timm2(im_timm)
     print(im_timm.shape)
     print(im_timm)
 
@@ -204,33 +207,6 @@ def main():
         use_multi_epochs_loader=False,
         worker_seeding='all',
     )
-    loader_args = dict(
-        batch_size=1,
-        shuffle=False,
-        num_workers=args.workers,
-        sampler=None,
-        collate_fn=None,
-        pin_memory=False,
-        drop_last=True,
-        worker_init_fn=partial(_worker_init, worker_seeding='all'),
-        persistent_workers=True
-    )
-    loader_class = torch.utils.data.DataLoader
-    loader = loader_class(dataset_train, **loader_args)
-    loader = PrefetchLoader(
-        loader,
-        mean=data_config['mean'],
-        std=data_config['std'],
-        channels=3,
-        fp16=False,
-        re_prob=0,
-        re_mode='pixel',
-        re_count=1,
-        re_num_splits=0
-    )
-    ims = [x[0] for x in loader]
-    print(ims[0])
-
 
     samples = defaultdict(list)
     for x in loader_train:
