@@ -163,9 +163,9 @@ def main():
     mean = expand_to_chs(data_config['mean'], 3)
     std = expand_to_chs(data_config['std'], 3)
     normalization_shape = (1, 3, 1, 1)
-    mean = torch.tensor([x * 255 for x in mean]).cuda().view(normalization_shape)
-    std = torch.tensor([x * 255 for x in std]).cuda().view(normalization_shape)
-    im_torch = im_torch.float().sub_(mean).div_(std)
+    mean = torch.tensor([x * 255 for x in mean]).view(normalization_shape)
+    std = torch.tensor([x * 255 for x in std]).view(normalization_shape)
+    im_torch = im_torch.unsqueeze(0).float().sub_(mean).div_(std)
     print(im_torch.shape)
     print(im_torch)
 
@@ -174,7 +174,7 @@ def main():
         input_size=data_config['input_size'],
         batch_size=1,
         is_training=True,
-        use_prefetcher=False,
+        use_prefetcher=True,
         no_aug=True,
         re_prob=args.reprob,
         re_mode='pixel',
@@ -196,7 +196,7 @@ def main():
         use_multi_epochs_loader=False,
         worker_seeding='all',
     )
-    loader_train.dataset.transform = transf_torch
+    # loader_train.dataset.transform = transf_torch
 
     samples = defaultdict(list)
     for x in loader_train:
