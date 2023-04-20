@@ -228,7 +228,8 @@ def main():
         re_count=1,
         re_num_splits=0
     )
-    print(loader[0])
+    ims = [x[0] for x in loader]
+    print(ims[0])
 
 
     samples = defaultdict(list)
