@@ -217,10 +217,27 @@ def main():
     )
     # loader_train.dataset.transform = transf_torch
     # trans_tiff = loader_train.dataset.transform
-    trans_tiff = transforms_factory.transforms_noaug_train(img_size=(384,384),
-                                                           use_prefetcher=use_prefetcher,
-                                                           mean=data_config['mean'],
-                                                           std=data_config['std'])
+    # trans_tiff = transforms_factory.transforms_noaug_train(img_size=(384,384),
+    #                                                        use_prefetcher=use_prefetcher,
+    #                                                        mean=data_config['mean'],
+    #                                                        std=data_config['std'])
+    trans_tiff = transforms_factory.transforms_imagenet_train(
+        (384,384),
+        scale=args.scale,
+        ratio=args.ratio,
+        hflip=args.hflip,
+        vflip=args.vflip,
+        color_jitter=args.color_jitter,
+        auto_augment=args.aa,
+        interpolation='random',
+        use_prefetcher=use_prefetcher,
+        mean=data_config['mean'],
+        std=data_config['std'],
+        re_prob=args.reprob,
+        re_mode='pixel',
+        re_count=1,
+        re_num_splits=0,
+        separate=False)
     print(trans_tiff)
     print(loader_train.dataset.transform)
     exit()
