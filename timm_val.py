@@ -199,7 +199,8 @@ def main():
     normalization_shape = (1, 3, 1, 1)
     mean = torch.tensor([x * 255 for x in mean]).view(normalization_shape)
     std = torch.tensor([x * 255 for x in std]).view(normalization_shape)
-    im_tiff, im_label = fast_collate([(im_tiff, im_label)])
+    collate_fn = fast_collate if args.prefetcher else torch.utils.data.dataloader.default_collate
+    im_tiff, im_label = collate_fn([(im_tiff, im_label)])
     im_tiff = im_tiff.float().sub_(mean).div_(std)
 
     samples = []
