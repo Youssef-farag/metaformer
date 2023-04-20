@@ -194,14 +194,15 @@ def main():
     print(trans_tiff)
     print(loader.dataset.transform)
     im_tiff = trans_tiff(im)
-    mean = expand_to_chs(data_config['mean'], 3)
-    std = expand_to_chs(data_config['std'], 3)
-    normalization_shape = (1, 3, 1, 1)
-    mean = torch.tensor([x * 255 for x in mean]).view(normalization_shape)
-    std = torch.tensor([x * 255 for x in std]).view(normalization_shape)
-    collate_fn = fast_collate if args.prefetcher else torch.utils.data.dataloader.default_collate
-    im_tiff, im_label = collate_fn([(im_tiff, im_label)])
-    im_tiff = im_tiff.float().sub_(mean).div_(std)
+    if args.prefetcher:
+        mean = expand_to_chs(data_config['mean'], 3)
+        std = expand_to_chs(data_config['std'], 3)
+        normalization_shape = (1, 3, 1, 1)
+        mean = torch.tensor([x * 255 for x in mean]).view(normalization_shape)
+        std = torch.tensor([x * 255 for x in std]).view(normalization_shape)
+        collate_fn = fast_collate
+        im_tiff, im_label = collate_fn([(im_tiff, im_label)])
+        im_tiff = im_tiff.float().sub_(mean).div_(std)
 
     samples = []
     for x in loader:
