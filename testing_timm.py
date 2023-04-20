@@ -8,6 +8,8 @@ from PIL import Image
 from timm.models import create_model
 import metaformer_baselines
 from timm.data import create_dataset, create_loader, resolve_data_config, transforms_factory
+from timm.data.loader import _worker_init, PrefetchLoader
+from functools import partial
 
 config_parser = parser = argparse.ArgumentParser(description='Training Config', add_help=False)
 parser.add_argument('-c', '--config', default='', type=str, metavar='FILE',
@@ -202,6 +204,32 @@ def main():
         use_multi_epochs_loader=False,
         worker_seeding='all',
     )
+    loader_args = dict(
+        batch_size=1,
+        shuffle=False,
+        num_workers=args.workers,
+        sampler=None,
+        collate_fn=None,
+        pin_memory=False,
+        drop_last=True,
+        worker_init_fn=partial(_worker_init, worker_seeding='all'),
+        persistent_workers=True
+    )
+    loader_class = torch.utils.data.DataLoader
+    loader = loader_class(dataset_train, **loader_args)
+    loader = PrefetchLoader(
+        loader,
+        mean=data_config['mean'],
+        std=data_config['std'],
+        channels=3,
+        fp16=False,
+        re_prob=0,
+        re_mode='pixel',
+        re_count=1,
+        re_num_splits=0
+    )
+    print(loader[0])
+
 
     samples = defaultdict(list)
     for x in loader_train:
