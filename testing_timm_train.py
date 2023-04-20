@@ -90,7 +90,7 @@ group.add_argument('-b', '--batch-size', type=int, default=1, metavar='N',
 
 # Augmentation & regularization parameters
 group = parser.add_argument_group('Augmentation and regularization parameters')
-group.add_argument('--no-aug', action='store_true', default=False,
+group.add_argument('--no-aug', action='store_true', default=True,
                     help='Disable all training augmentation, override other train aug args')
 group.add_argument('--scale', type=float, nargs='+', default=[0.08, 1.0], metavar='PCT',
                     help='Random resize scale (default: 0.08 1.0)')
@@ -151,7 +151,7 @@ def main():
     args, args_text = _parse_args()
     args.rank = 0
     utils.random_seed(args.seed, args.rank)
-    args.data_dir = '/home/yous/Desktop/cerrion/datasets/retest'
+    args.data_dir = '../ba_project/datasets/retest'
     modargs = {'model_name': 'convformer_s18_384', 'checkpoint_path': './convformer_s18_384.pth'}
     a = create_model(**modargs)
     data_config = resolve_data_config(vars(args), model=a, verbose=True)
@@ -199,7 +199,8 @@ def main():
         trans_tiff = transforms_factory.transforms_noaug_train(img_size=img_size,
                                                                use_prefetcher=args.prefetcher,
                                                                mean=data_config['mean'],
-                                                               std=data_config['std'])
+                                                               std=data_config['std'],
+                                                               interpolation=train_interpolation)
     else:
         trans_tiff = transforms_factory.transforms_imagenet_train(
             img_size,
