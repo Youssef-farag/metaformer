@@ -1,9 +1,13 @@
 import yaml
 import argparse
+import numpy as np
+import torch
+from collections import defaultdict
+from torchvision import transforms
+from PIL import Image
 from timm.models import create_model
 import metaformer_baselines
-from timm.data import create_dataset, create_loader, resolve_data_config
-
+from timm.data import create_dataset, create_loader, resolve_data_config, transforms_factory
 
 config_parser = parser = argparse.ArgumentParser(description='Training Config', add_help=False)
 parser.add_argument('-c', '--config', default='', type=str, metavar='FILE',
@@ -17,7 +21,7 @@ group = parser.add_argument_group('Dataset parameters')
 # Keep this argument outside of the dataset group because it is positional.
 # parser.add_argument('data_dir', metavar='DIR', help='path to dataset',
 #                     default='/home/yous/Desktop/cerrion/datasets/retest')
-group.add_argument('--dataset', '-d', metavar='NAME', default='',
+group.add_argument('--dataset', '-d', metavar='NAME', default='ImageFolder',
                     help='dataset type (default: ImageFolder/ImageTar if empty)')
 group.add_argument('--train-split', metavar='NAME', default='train',
                     help='dataset train split (default: train)')
@@ -88,14 +92,14 @@ group.add_argument('--bce-target-thresh', type=float, default=None,
                     help='Threshold for binarizing softened BCE targets (default: None, disabled)')
 group.add_argument('--reprob', type=float, default=0.25, metavar='PCT',
                     help='Random erase prob (default: 0.25)')
-group.add_argument('--train-interpolation', type=str, default='random',
+group.add_argument('--train-interpolation', type=str, default='bilinear',
                     help='Training interpolation (random, bilinear, bicubic default: "random")')
 
 # Misc
 group = parser.add_argument_group('Miscellaneous parameters')
 group.add_argument('--seed', type=int, default=42, metavar='S',
                     help='random seed (default: 42)')
-group.add_argument('-j', '--workers', type=int, default=8, metavar='N',
+group.add_argument('-j', '--workers', type=int, default=1, metavar='N',
                     help='how many training processes to use (default: 8)')
 group.add_argument('--output', default='', type=str, metavar='PATH',
                     help='path to output folder (default: none, current dir)')
@@ -121,18 +125,34 @@ def _parse_args():
 
 def main():
     args, args_text = _parse_args()
-    args.data_dir = '/home/yous/Desktop/cerrion/datasets/retest'
+    args.data_dir = '../ba_project/datasets/retest'
     modargs = {'model_name': 'convformer_s18_384', 'pretrained': False, 'num_classes': None,
                'drop_rate': 0.0, 'drop_connect_rate': None, 'drop_path_rate': 0.3,
                'drop_block_rate': None, 'global_pool': None, 'bn_momentum': None,
                'bn_eps': None, 'scriptable': False,
-               'checkpoint_path': '/home/yous/Desktop/cerrion/metaformer/convformer_s18_384.pth',
+               'checkpoint_path': './convformer_s18_384.pth',
                'head_dropout': 0.4}
     a = create_model(**modargs)
     data_config = resolve_data_config(vars(args), model=a, verbose=True)
     dataset_train = create_dataset(
         args.dataset, root=args.data_dir, split=args.train_split, is_training=True,
         class_map=args.class_map, download=False, batch_size=1, repeats=0)
+    impath, im_label = dataset_train.parser.samples[1]
+    im = Image.open(impath).convert('RGB')
+    transf_torch = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Resize((384,384)),
+        transforms.Normalize(mean=data_config['mean'],
+                             std=data_config['std'])])
+    im_torch = transf_torch(im)
+    print('Label', im_label)
+    print(im_torch.shape)
+    print(im_torch)
+
+    transf_timm = transforms_factory.transforms_noaug_train(img_size=384,mean=data_config['mean'],std=data_config['std'],interpolation='bilinear')
+    im_timm = transf_timm(im)
+    print(im_timm.shape)
+    print(im_timm)
 
     loader_train = create_loader(
         dataset_train,
@@ -140,7 +160,7 @@ def main():
         batch_size=1,
         is_training=True,
         use_prefetcher=True,
-        no_aug=args.no_aug,
+        no_aug=True,
         re_prob=args.reprob,
         re_mode='pixel',
         re_count=1,
@@ -161,8 +181,13 @@ def main():
         use_multi_epochs_loader=False,
         worker_seeding='all',
     )
+    samples = defaultdict(list)
     for x in loader_train:
-        print(type(x))
+        samples[x[1].item()].append(x[0])
+
+    newsample = samples[im_label][0]
+    print(newsample.shape)
+    print(newsample)
 
 if __name__ == '__main__':
     main()

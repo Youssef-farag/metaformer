@@ -668,6 +668,9 @@ def train_one_epoch(
             input = input.contiguous(memory_format=torch.channels_last)
 
         with amp_autocast():
+            print(input)
+            print(input.shape)
+            exit()
             output = model(input)
             loss = loss_fn(output, target)
 
